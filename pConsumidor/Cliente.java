@@ -32,10 +32,7 @@ public class Cliente
 			// Aqui a gente exibe o fruto produzido por esse lindo e maravilho sistema distribuído
 			// Passo importante 4: Verificar resposta dada pelo método remoto.
 
-            stub.solicitarImpressao(new File("teste.txt"));
-            stub.solicitarImpressao(new File("teste.txt"));
-            stub.solicitarImpressao(new File("teste.txt"));
-            String respostastub = stub.solicitarImpressao(new File("teste.txt"));
+            boolean respostastub = stub.solicitarImpressao(new File("teste.txt"));
             System.out.println("resposta: " + respostastub);
         } 
 		catch (Exception e) // Esse catch trata os RemoteException caso ocorra algum

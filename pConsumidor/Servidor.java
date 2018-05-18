@@ -7,64 +7,85 @@ import java.io.IOException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.Semaphore;
+
+import static javafx.application.Platform.exit;
 
 public class Servidor implements Impressao {
-    private File[] buffer;
+    private List<File> buffer;
     private int cursor;
-    private int ocupados;
-    private File impressora1;
-    private File impressora2;
+    private int produtoresAtivos;
+    private Semaphore mutex;
 
     public Servidor() {
-        buffer = new File[3];
+        buffer = new ArrayList<>();
         cursor = 0;
+        produtoresAtivos = 5;
+    }
+
+
+    public List<File> getBuffer() {
+        return buffer;
+    }
+
+    public Semaphore getMutex() {
+        return mutex;
+    }
+
+
+    public boolean bufferCheio() {
+        return buffer.size() == 3;
     }
 
 
     /**
      * Método chamado pelo cliente pra inserir um arquivo na fila de impressão
+     *
      * @param arquivo
      */
-    public String solicitarImpressao(File arquivo) throws IOException{
-        if(ocupados >= 2)
-            return "Fila de impressão cheia. Tente novamente mais tarde.";
-        buffer[cursor] = arquivo;
-        ocupados++;
-        imprime(impressora1);
+    public boolean solicitarImpressao(File arquivo) throws IOException, InterruptedException {
+        boolean retorno = false;
+        if (mutex.tryAcquire()) {
 
-        return "Impresso com sucesso";
-    }
+            if (bufferCheio())
+                retorno = false;
 
-    public void imprime(File impressora) throws IOException {
-        FileWriter saida = new FileWriter(impressora, true);
-        Scanner leArquivo = new Scanner(buffer[cursor]);
+            else {
+                buffer.add(arquivo);
+                cursor++;
+                if (cursor > 2)
+                    cursor = 0;
+                retorno = true;
+            }
 
-        while(leArquivo.hasNextLine()) {
-            saida.write(leArquivo.nextLine());
-            saida.write("\n");
+            mutex.release();
         }
-        buffer[cursor] = null;
-        ocupados--;
-        cursor++;
-        if(cursor >= 2)
-            cursor = 0;
-        saida.close();
+        return retorno;
     }
+
+
+    public void terminarSessao(){
+        produtoresAtivos--;
+        if(produtoresAtivos == 0)
+            System.exit(0);
+    }
+
 
     /**
      * Tarefas:
      * Criar buffer
      * Criar método de impressão
-     *
+     * <p>
      * Criar função de solicitar impressão pelo cliente
-     *
+     * <p>
      * Criar semáforos
      * Criar threads
      * testar funções
-     *
+     * <p>
      * Criar classe do cliente
-     *
      *
      * @param args
      */
@@ -76,11 +97,11 @@ public class Servidor implements Impressao {
             Registry registry = LocateRegistry.getRegistry();
 
             registry.bind("Impressao", stub);
-            obj.impressora1 = new File("imp1.txt");
 
-     //       obj.buffer[obj.cursor] = new File("teste.txt");
+            obj.mutex = new Semaphore(1, true);
 
-     //       obj.imprime(obj.impressora1);
+            Impressora impressora1 = new Impressora(new File("imp1.txt"),obj);
+            new Thread(impressora1).start();
 
             System.out.println("Servidor pronto!");
         } catch (Exception e) {
