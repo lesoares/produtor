@@ -2,13 +2,11 @@ package pConsumidor;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.Scanner;
 
 public class Impressora implements Runnable{
     File saida;
     Servidor servidor;
-    int totalImpresso;
 
     public Impressora(File saida, Servidor servidor) {
         this.saida = saida;
@@ -31,8 +29,8 @@ public class Impressora implements Runnable{
                            saida.write(leArquivo.nextLine());
                            saida.write("\n");
                        }
-                       totalImpresso++;
                        System.out.println("Imprimiu");
+                       leArquivo.close();
                        saida.close();
                    } else {
                        servidor.getMutex().release();
@@ -42,8 +40,6 @@ public class Impressora implements Runnable{
            catch (Exception e){
                System.out.println("Impressão falhou, um erro inesperado ocorreu.");
            }
-       } while(totalImpresso < 3);
+       } while(!servidor.isAcaba());
     }
-
-
 }

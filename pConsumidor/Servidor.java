@@ -1,41 +1,61 @@
 package pConsumidor;
 
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 import java.util.concurrent.Semaphore;
-
-import static javafx.application.Platform.exit;
 
 public class Servidor implements Impressao {
     private List<File> buffer;
-    private int cursor;
     private int produtoresAtivos;
+    private boolean acaba;
     private Semaphore mutex;
 
+    /**
+     * Inicializa o buffer vazio; e
+     * Inicializa o total de produtores possíveis (5)
+     */
     public Servidor() {
         buffer = new ArrayList<>();
-        cursor = 0;
         produtoresAtivos = 5;
     }
 
 
+    /**
+     * Obtém o buffer contendo os arquivos em ordem de impressão
+     *
+     * @return Buffer de impressão
+     */
     public List<File> getBuffer() {
         return buffer;
     }
 
+    /**
+     * Obtém o semáforo de controle de acesso ao buffer
+     *
+     * @return Semáforo de acesso ao buffer
+     */
     public Semaphore getMutex() {
         return mutex;
     }
 
+    /**
+     * Obtém a flag de finalizar a thread
+     *
+     * @return Se o servidor já pode acabar
+     */
+    public boolean isAcaba() {
+        return acaba;
+    }
 
+
+    /**
+     * Função que verifica se o buffer está cheio, ou seja, as 3 posições foram ocupadam.
+     */
     public boolean bufferCheio() {
         return buffer.size() == 3;
     }
@@ -44,33 +64,37 @@ public class Servidor implements Impressao {
     /**
      * Método chamado pelo cliente pra inserir um arquivo na fila de impressão
      *
-     * @param arquivo
+     * @param arquivo Arquivo a ser impresso
      */
-    public boolean solicitarImpressao(File arquivo) throws IOException, InterruptedException {
+    public boolean solicitarImpressao(File arquivo) throws RemoteException {
         boolean retorno = false;
+
         if (mutex.tryAcquire()) {
 
-            if (bufferCheio())
+            if (bufferCheio()) {
                 retorno = false;
-
-            else {
+                System.out.println("Buffer cheio");
+            } else {
+                System.out.println("Adicionando na fila " + arquivo.getName());
                 buffer.add(arquivo);
-                cursor++;
-                if (cursor > 2)
-                    cursor = 0;
                 retorno = true;
             }
-
             mutex.release();
+
         }
         return retorno;
     }
 
 
-    public void terminarSessao(){
+    /**
+     * Cliente chama para sinalizar que vai se desconectar do servidor.
+     * Quando todos os 5 clientes se desconectam, ou seja, a função é chamada 5 vezes,
+     * A flag de terminar é alterada para verdadeiro.
+     */
+    public void terminarSessao() {
         produtoresAtivos--;
-        if(produtoresAtivos == 0)
-            System.exit(0);
+        if (produtoresAtivos <= 0)
+            acaba = true;
     }
 
 
@@ -100,10 +124,21 @@ public class Servidor implements Impressao {
 
             obj.mutex = new Semaphore(1, true);
 
-            Impressora impressora1 = new Impressora(new File("imp1.txt"),obj);
-            new Thread(impressora1).start();
+            Impressora impressora1 = new Impressora(new File("imp1.txt"), obj);
+            Impressora impressora2 = new Impressora(new File("imp2.txt"), obj);
+            Thread i1 = new Thread(impressora1);
+            Thread i2 = new Thread(impressora2);
 
             System.out.println("Servidor pronto!");
+            i1.start();
+            i2.start();
+
+
+            i1.join();
+            i2.join();
+
+            System.out.println("Done.");
+            System.exit(0);
         } catch (Exception e) {
             System.err.println("Capturando exceção no Servidor: " + e.toString());
             e.printStackTrace();

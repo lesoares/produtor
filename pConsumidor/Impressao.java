@@ -9,6 +9,7 @@ import java.rmi.RemoteException;
 public interface Impressao extends Remote
 {
     //Chamada do processo de impressão
-    boolean solicitarImpressao(File arquivo) throws RemoteException, IOException, InterruptedException;
+    boolean solicitarImpressao(File arquivo) throws RemoteException;
 
+    void terminarSessao() throws RemoteException;
 }
