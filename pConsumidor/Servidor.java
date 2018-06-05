@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 
 public class Servidor implements Impressao {
+
+    public static int totalClientes = 5;
+
     private List<File> buffer;
     private int produtoresAtivos;
     private boolean acaba;
@@ -21,7 +24,7 @@ public class Servidor implements Impressao {
      */
     public Servidor() {
         buffer = new ArrayList<>();
-        produtoresAtivos = 5;
+        produtoresAtivos = totalClientes;
     }
 
 
@@ -69,16 +72,18 @@ public class Servidor implements Impressao {
     public boolean solicitarImpressao(File arquivo) throws RemoteException {
         boolean retorno = false;
 
+        //obtém o lock
         if (mutex.tryAcquire()) {
-
+            //Se buffer já está cheio, retorna falha ao cliente.
             if (bufferCheio()) {
                 retorno = false;
-                System.out.println("Buffer cheio");
+                System.out.println("Não é possível imprimir esse arquivo (" +arquivo.getName()+") agora, pois o buffer está cheio. Tente novamente mais tarde.");
             } else {
-                System.out.println("Adicionando na fila " + arquivo.getName());
+                System.out.println("Adicionando na fila o arquivo " + arquivo.getName());
                 buffer.add(arquivo);
                 retorno = true;
             }
+            //libera o lock
             mutex.release();
 
         }
@@ -99,22 +104,13 @@ public class Servidor implements Impressao {
 
 
     /**
-     * Tarefas:
-     * Criar buffer
-     * Criar método de impressão
-     * <p>
-     * Criar função de solicitar impressão pelo cliente
-     * <p>
-     * Criar semáforos
-     * Criar threads
-     * testar funções
-     * <p>
-     * Criar classe do cliente
+     * Inicializa o RMI, semáforo e threads.
      *
      * @param args
      */
     public static void main(String args[]) {
         try {
+            //inicializa o RMI
             java.rmi.registry.LocateRegistry.createRegistry(1099);
             Servidor obj = new Servidor();
             Impressao stub = (Impressao) UnicastRemoteObject.exportObject(obj, 0);
@@ -122,6 +118,7 @@ public class Servidor implements Impressao {
 
             registry.bind("Impressao", stub);
 
+            //cria locks e threads
             obj.mutex = new Semaphore(1, true);
 
             Impressora impressora1 = new Impressora(new File("imp1.txt"), obj);
@@ -133,11 +130,12 @@ public class Servidor implements Impressao {
             i1.start();
             i2.start();
 
+            //Junta tudo e acaba
 
             i1.join();
             i2.join();
 
-            System.out.println("Done.");
+            System.out.println("Servidor fechado.");
             System.exit(0);
         } catch (Exception e) {
             System.err.println("Capturando exceção no Servidor: " + e.toString());
