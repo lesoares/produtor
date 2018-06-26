@@ -11,7 +11,7 @@ import java.util.concurrent.Semaphore;
 
 public class Servidor implements Impressao {
 
-    public static int totalClientes = 5;
+//    public int totalClientes;
 
     private List<File> buffer;
     private int produtoresAtivos;
@@ -22,9 +22,10 @@ public class Servidor implements Impressao {
      * Inicializa o buffer vazio; e
      * Inicializa o total de produtores possíveis (5)
      */
-    public Servidor() {
+    public Servidor(int totalClientes) {
         buffer = new ArrayList<>();
         produtoresAtivos = totalClientes;
+        System.out.println("Total ativos "+produtoresAtivos);
     }
 
 
@@ -97,6 +98,7 @@ public class Servidor implements Impressao {
      * A flag de terminar é alterada para verdadeiro.
      */
     public void terminarSessao() {
+        System.out.println("Total ativos "+produtoresAtivos);
         produtoresAtivos--;
         if (produtoresAtivos <= 0)
             acaba = true;
@@ -112,11 +114,13 @@ public class Servidor implements Impressao {
         try {
             //inicializa o RMI
             java.rmi.registry.LocateRegistry.createRegistry(1099);
-            Servidor obj = new Servidor();
+            Servidor obj = new Servidor(Integer.valueOf(args[0]));
+
             Impressao stub = (Impressao) UnicastRemoteObject.exportObject(obj, 0);
             Registry registry = LocateRegistry.getRegistry();
 
             registry.bind("Impressao", stub);
+
 
             //cria locks e threads
             obj.mutex = new Semaphore(1, true);
